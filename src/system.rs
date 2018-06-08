@@ -304,7 +304,7 @@ impl<'a, T: ?Sized> SystemData<'a> for PhantomData<T> {
 }
 
 macro_rules! system_fn {
-    ( $f:ident($($an:ident: $at:ty),*) ) => {
+    ( $f:ident($($an:ident: $at:ty),* $(,)*) ) => {
         {
             struct FnSys;
             impl<'system> ::System<'system> for FnSys
@@ -319,7 +319,47 @@ macro_rules! system_fn {
 
             FnSys
         }
-    }
+    };
+
+    ( |$( $an:ident : $at:ident<'system $( , $ap:ty )*> ),* $(,)*| $body:expr) => {
+        {
+            struct FnSys<F>(F);
+
+            impl<'system, F> ::System<'system> for FnSys<F>
+                where
+                    F: FnMut($( $at<'system $( , $ap )*> , )*),
+                    $( $at<'system $( , $ap )*> : ::SystemData<'system> ),*
+            {
+                type SystemData = ($( $at<'system $( , $ap )*> , )*);
+
+                fn run(&mut self, ($( $an , )*): Self::SystemData) {
+                    (self.0)($( $an , )*)
+                }
+            }
+
+            FnSys(|$( $an: $at<$($ap,)*> , ) *| $body)
+        }
+    };
+
+    ( move |$( $an:ident : $at:ident<'system $( , $ap:ty )*> ),* $(,)*| $body:expr) => {
+        {
+            struct FnSys<F>(F);
+
+            impl<'system, F> ::System<'system> for FnSys<F>
+                where
+                    F: FnMut($( $at<'system $( , $ap )*> , )*),
+                    $( $at<'system $( , $ap )*> : ::SystemData<'system> ),*
+            {
+                type SystemData = ($( $at<'system $( , $ap )*> , )*);
+
+                fn run(&mut self, ($( $an , )*): Self::SystemData) {
+                    (self.0)($( $an , )*)
+                }
+            }
+
+            FnSys(move |$( $an: $at<$($ap,)*> , ) *| $body)
+        }
+    };
 }
 
 mod impl_system_fn {
@@ -335,19 +375,20 @@ mod impl_system_fn {
 
         #[test]
         fn test_add_to_dispatch() {
+
+            let x = 2;
+
             let dispatch = DispatcherBuilder::new()
                 .with(system_fn!(test_system(res: Write<'system, Res<i32>>)), "test_system", &[])
-                .with(system_fn!(test_system2(res: Write<'system, Res<u32>>)), "test_system2", &[]);
+                .with(system_fn!(|res: Write<'system, Res<u32>>| println!("Dummy")), "test_system2", &[])
+                .with(system_fn!(move |res: Write<'system, Res<u32>>| ::std::mem::drop(x)), "test_system3", &[])
+                ;
         }
 
         #[derive(Default)]
         struct Res<T>(T);
 
         fn test_system(res: Write<Res<i32>>) {
-            println!("Dummy!!");
-        }
-
-        fn test_system2(res: Write<Res<u32>>) {
             println!("Dummy!!");
         }
     }
