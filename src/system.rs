@@ -306,18 +306,20 @@ impl<'a, T: ?Sized> SystemData<'a> for PhantomData<T> {
 macro_rules! system_fn {
     ( $f:ident($($an:ident: $at:ty),* $(,)*) ) => {
         {
-            struct FnSys;
-            impl<'system> ::System<'system> for FnSys
-                where $( $at : ::SystemData<'system> ),*
+            struct FnSys<F>(F);
+            impl<'system, F> ::System<'system> for FnSys<F>
+                where
+                    F: FnMut($( $at , )*),
+                    $( $at : ::SystemData<'system> ),*
             {
                 type SystemData = ($( $at , )*);
 
                 fn run(&mut self, ($( $an , )*): Self::SystemData) {
-                    $f($( $an , )*);
+                    (self.0)($( $an , )*);
                 }
             }
 
-            FnSys
+            FnSys($f)
         }
     };
 
@@ -378,17 +380,20 @@ mod impl_system_fn {
 
             let x = 2;
 
+            let named_closure = |_res: Write<Res<u32>>| println!("{}", x);
+
             let dispatch = DispatcherBuilder::new()
-                .with(system_fn!(test_system(res: Write<'system, Res<i32>>)), "test_system", &[])
-                .with(system_fn!(|res: Write<'system, Res<u32>>| println!("Dummy")), "test_system2", &[])
-                .with(system_fn!(move |res: Write<'system, Res<u32>>| ::std::mem::drop(x)), "test_system3", &[])
+                .with(system_fn!(test_system(res: Write<'system, Res<i32>>)), "fn", &[])
+                .with(system_fn!(|_res: Write<'system, Res<u32>>| println!("{}", x)), "closure", &[])
+                .with(system_fn!(move |_res: Write<'system, Res<u32>>| ::std::mem::drop(x)), "move closure", &[])
+                .with(system_fn!(named_closure(res: Write<'system, Res<u32>>)), "named closure", &[])
                 ;
         }
 
         #[derive(Default)]
         struct Res<T>(T);
 
-        fn test_system(res: Write<Res<i32>>) {
+        fn test_system(_res: Write<Res<i32>>) {
             println!("Dummy!!");
         }
     }
