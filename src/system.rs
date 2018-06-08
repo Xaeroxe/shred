@@ -303,6 +303,7 @@ impl<'a, T: ?Sized> SystemData<'a> for PhantomData<T> {
     }
 }
 
+#[macro_export]
 macro_rules! system_fn {
     ( $f:ident($($an:ident: $at:ty),* $(,)*) ) => {
         {
@@ -364,14 +365,14 @@ macro_rules! system_fn {
     };
 }
 
+#[cfg(test)]
 mod impl_system_fn {
     #![cfg_attr(rustfmt, rustfmt_skip)]
     #![allow(non_snake_case)]
 
-    use super::*;
-
     #[cfg(test)]
     mod tests {
+        use std::mem::drop;
         use dispatch::DispatcherBuilder;
         use res::*;
 
@@ -385,9 +386,11 @@ mod impl_system_fn {
             let dispatch = DispatcherBuilder::new()
                 .with(system_fn!(test_system(res: Write<'system, Res<i32>>)), "fn", &[])
                 .with(system_fn!(|_res: Write<'system, Res<u32>>| println!("{}", x)), "closure", &[])
-                .with(system_fn!(move |_res: Write<'system, Res<u32>>| ::std::mem::drop(x)), "move closure", &[])
+                .with(system_fn!(move |_res: Write<'system, Res<u32>>| drop(x)), "move closure", &[])
                 .with(system_fn!(named_closure(res: Write<'system, Res<u32>>)), "named closure", &[])
                 ;
+
+            drop(dispatch);
         }
 
         #[derive(Default)]
