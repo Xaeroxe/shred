@@ -303,26 +303,21 @@ impl<'a, T: ?Sized> SystemData<'a> for PhantomData<T> {
     }
 }
 
-macro_rules! impl_system_fn {
-    ( $($ty:ident),* ) => {
-        impl<'a, $( $ty , )*> System<'a> for Box<FnMut($( $ty , )*)>
-        where $( $ty : SystemData<'a> ),*
+macro_rules! system_fn {
+    ( $f:ident($($an:ident: $at:ty),*) ) => {
         {
-            type SystemData = ($( $ty , )*);
+            struct FnSys;
+            impl<'system> ::System<'system> for FnSys
+                where $( $at : ::SystemData<'system> ),*
+            {
+                type SystemData = ($( $at , )*);
 
-            fn run(&mut self, ($( $ty , )*): Self::SystemData) {
-                (self)($( $ty , )*);
+                fn run(&mut self, ($( $an , )*): Self::SystemData) {
+                    $f($( $an , )*);
+                }
             }
-        }
 
-        impl<'a, $( $ty , )*> System<'a> for fn($( $ty , )*)
-        where $( $ty : SystemData<'a> ),*
-        {
-            type SystemData = ($( $ty , )*);
-
-            fn run(&mut self, ($( $ty , )*): Self::SystemData) {
-                (self)($( $ty , )*);
-            }
+            FnSys
         }
     }
 }
@@ -333,33 +328,6 @@ mod impl_system_fn {
 
     use super::*;
 
-    impl_system_fn!(A);
-    impl_system_fn!(A, B);
-    impl_system_fn!(A, B, C);
-    impl_system_fn!(A, B, C, D);
-    impl_system_fn!(A, B, C, D, E);
-    impl_system_fn!(A, B, C, D, E, F);
-    impl_system_fn!(A, B, C, D, E, F, G);
-    impl_system_fn!(A, B, C, D, E, F, G, H);
-    impl_system_fn!(A, B, C, D, E, F, G, H, I);
-    impl_system_fn!(A, B, C, D, E, F, G, H, I, J);
-    impl_system_fn!(A, B, C, D, E, F, G, H, I, J, K);
-    impl_system_fn!(A, B, C, D, E, F, G, H, I, J, K, L);
-    impl_system_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M);
-    impl_system_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M, N);
-    impl_system_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
-    impl_system_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
-    impl_system_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q);
-    impl_system_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R);
-    impl_system_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S);
-    impl_system_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T);
-    impl_system_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U);
-    impl_system_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V);
-    impl_system_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W);
-    impl_system_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X);
-    impl_system_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y);
-    impl_system_fn!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z);
-
     #[cfg(test)]
     mod tests {
         use dispatch::DispatcherBuilder;
@@ -368,13 +336,18 @@ mod impl_system_fn {
         #[test]
         fn test_add_to_dispatch() {
             let dispatch = DispatcherBuilder::new()
-                .with(test_system as fn(_), "test_system", &[]);
+                .with(system_fn!(test_system(res: Write<'system, Res<i32>>)), "test_system", &[])
+                .with(system_fn!(test_system2(res: Write<'system, Res<u32>>)), "test_system2", &[]);
         }
 
         #[derive(Default)]
-        struct Res(i32);
+        struct Res<T>(T);
 
-        fn test_system(res: Write<Res>) {
+        fn test_system(res: Write<Res<i32>>) {
+            println!("Dummy!!");
+        }
+
+        fn test_system2(res: Write<Res<u32>>) {
             println!("Dummy!!");
         }
     }
