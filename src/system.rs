@@ -378,22 +378,25 @@ mod impl_system_fn {
 
         #[test]
         fn test_add_to_dispatch() {
+            let number = 2;
+            let dispatch = DispatcherBuilder::new();
 
-            let x = 2;
+            let dispatch = {
+                let res = Res(1);
 
-            let named_closure = |_res: Write<Res<u32>>| println!("{}", x);
+                let named_closure = |_res: Write<Res<u32>>| println!("{}", number);
 
-            let dispatch = DispatcherBuilder::new()
-                .with(system_fn!(test_system(res: Write<'system, Res<i32>>)), "fn", &[])
-                .with(system_fn!(|_res: Write<'system, Res<u32>>| println!("{}", x)), "closure", &[])
-                .with(system_fn!(move |_res: Write<'system, Res<u32>>| drop(x)), "move closure", &[])
-                .with(system_fn!(named_closure(res: Write<'system, Res<u32>>)), "named closure", &[])
-                ;
+                dispatch
+                    .with(system_fn!(test_system(res: Write<'system, Res<i32>>)), "fn", &[])
+                    .with(system_fn!(|_res: Write<'system, Res<u32>>| println!("{}", number)), "closure", &[])
+                    .with(system_fn!(move |_res: Write<'system, Res<u32>>| println!("{:?}", res)), "move closure", &[])
+                    .with(system_fn!(named_closure(res: Write<'system, Res<u32>>)), "named closure", &[])
+            };
 
             drop(dispatch);
         }
 
-        #[derive(Default)]
+        #[derive(Default, Debug)]
         struct Res<T>(T);
 
         fn test_system(_res: Write<Res<i32>>) {
