@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 use std::ops::Deref;
-
-use {ResourceId, Resources};
+use {Read, ResourceId, Resources, Write};
 
 /// A trait for accessing read/write multiple resources from a system. This can be used
 /// to create dynamic systems that don't specify what they fetch at compile-time.
@@ -382,4 +381,25 @@ mod impl_data {
     impl_data!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X);
     impl_data!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y);
     impl_data!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z);
+}
+
+#[macro_export]
+macro_rules! simple_system {
+    ($viz:vis $name:ident($($arg:ident: $type:ty),*)$body:block) => {
+        $viz struct $name;
+
+        impl<'s> $crate::System<'s> for $name {
+            type SystemData = ($($type),*);
+
+            #[allow(unused_mut)]
+            fn run(&mut self, ($(mut $arg),*): Self::SystemData) $body
+        }
+    }
+}
+
+simple_system! {
+    Test(arg: Read<'s, i32>, arg2: Write<'s, u32>) {
+        *arg2 = 5;
+        println!("{}", *arg);
+    }
 }
